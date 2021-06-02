@@ -974,11 +974,13 @@ pyrituals==0.0.4
 # homeassistant.components.ruckus_unleashed
 pyruckus==0.12
 
+# homeassistant.components.modbus
 # homeassistant.components.serial
 # homeassistant.components.zha
 pyserial-asyncio==0.5
 
 # homeassistant.components.acer_projector
+# homeassistant.components.modbus
 # homeassistant.components.zha
 pyserial==3.5
 

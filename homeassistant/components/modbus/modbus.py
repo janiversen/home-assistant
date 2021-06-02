@@ -2,6 +2,10 @@
 import asyncio
 import logging
 
+from pymodbus.client.asynchronous import schedulers
+from pymodbus.client.asynchronous.serial import AsyncModbusSerialClient
+from pymodbus.client.asynchronous.tcp import AsyncModbusTCPClient
+from pymodbus.client.asynchronous.udp import AsyncModbusUDPClient
 from pymodbus.client.sync import ModbusSerialClient, ModbusTcpClient, ModbusUdpClient
 from pymodbus.constants import Defaults
 from pymodbus.exceptions import ModbusException
@@ -37,6 +41,7 @@ from .const import (
     CONF_BAUDRATE,
     CONF_BYTESIZE,
     CONF_CLOSE_COMM_ON_ERROR,
+    CONF_COMPAT_SYNC,
     CONF_PARITY,
     CONF_RETRIES,
     CONF_RETRY_ON_EMPTY,
@@ -195,13 +200,8 @@ class ModbusHub:
         self._config_name = client_config[CONF_NAME]
         self._config_type = client_config[CONF_TYPE]
         self._config_delay = client_config[CONF_DELAY]
+        self._compat = client_config[CONF_COMPAT_SYNC]
         self._pb_call = PYMODBUS_CALL.copy()
-        self._pb_class = {
-            CONF_SERIAL: ModbusSerialClient,
-            CONF_TCP: ModbusTcpClient,
-            CONF_UDP: ModbusUdpClient,
-            CONF_RTUOVERTCP: ModbusTcpClient,
-        }
         self._pb_params = {
             "port": client_config[CONF_PORT],
             "timeout": client_config[CONF_TIMEOUT],
@@ -209,6 +209,26 @@ class ModbusHub:
             "retries": client_config[CONF_RETRIES],
             "retry_on_empty": client_config[CONF_RETRY_ON_EMPTY],
         }
+        if self._compat:
+            self._pb_class = {
+                CONF_SERIAL: ModbusSerialClient,
+                CONF_TCP: ModbusTcpClient,
+                CONF_UDP: ModbusUdpClient,
+                CONF_RTUOVERTCP: ModbusTcpClient,
+            }
+        else:
+            self._pb_class = {
+                CONF_SERIAL: AsyncModbusSerialClient,
+                CONF_TCP: AsyncModbusTCPClient,
+                CONF_UDP: AsyncModbusUDPClient,
+                CONF_RTUOVERTCP: AsyncModbusTCPClient,
+            }
+            self._pb_params.update(
+                {
+                    "scheduler": schedulers.ASYNC_IO,
+                    "loop": self.hass.loop,
+                }
+            )
         if self._config_type == CONF_SERIAL:
             # serial configuration
             self._pb_params.update(
@@ -224,7 +244,7 @@ class ModbusHub:
             # network configuration
             self._pb_params["host"] = client_config[CONF_HOST]
             if self._config_type == CONF_RTUOVERTCP:
-                self._pb_params["host"] = "ModbusRtuFramer"
+                self._pb_params["framer"] = "ModbusRtuFramer"
 
         Defaults.Timeout = client_config[CONF_TIMEOUT]
 
